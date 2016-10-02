@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
     }
     pthread_join(my_thread,NULL);
     endwtime = time (NULL);
-    printf ("wall clock time = %f\n",(double) (endwtime - startwtime));
+    printf ("wall clock time = %d\n",(int) (endwtime - startwtime));
     return 0;
 }
 
