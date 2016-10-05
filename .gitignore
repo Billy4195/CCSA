@@ -2,3 +2,4 @@ pthread_setaffinity_np_test
 pro_[0-9]
 *.swp
 */workload
+*/monitor
