@@ -91,7 +91,7 @@ int main(){
           perror("sysconf error");
         }
         printf("HZ = %d\n",hz);
-        printf("Read speed %lf MB/s\n",(double)(aft_rd_sec-pre_rd_sec)/(double)((unsigned long)Total-(unsigned long)PreTotal)*hz/1024);
-        printf("Write speed %lf MB/s\n",(double)(aft_wr_sec-pre_wr_sec)/(double)((unsigned long)Total-(unsigned long)PreTotal)*hz/1024);
+        printf("Read speed %lf MB/s\n",(double)(aft_rd_sec-pre_rd_sec)/(double)((unsigned long)Total-(unsigned long)PreTotal)*hz/2048);
+        printf("Write speed %lf MB/s\n\n",(double)(aft_wr_sec-pre_wr_sec)/(double)((unsigned long)Total-(unsigned long)PreTotal)*hz/2048);
         return 0;
 }
