@@ -1,177 +1,197 @@
 #include <stdio.h>
-#include <string.h>
-#include <math.h>
 #include <stdlib.h>
-#include <signal.h>
-#include <unistd.h>
+#include <math.h>
+#include <errno.h>
+#include <string.h>
 
-#define TIME_SLOT 100000
-#define CPU_i 0
-#define MEM_i 1
-#define IO_i 2
+#define CPU_I 0
+#define MEM_I 1
+#define IO_I 2
 
-double hz;
+int cpu_run();
+int mem_run(double);
+int io_run();
+char cpu_handler();
+char mem_handler(int);
+char io_handler();
+unsigned long get_total_mem();
 
-typedef struct {
-        unsigned long cpu_time;
-        struct timeval last_update;
-}proc_t;
+int main(int argc,char **argv){
+        int i;
+        double cpu_load,mem_load,io_load;
+        int timeout=0;
+        char do_cpu,do_mem,do_io;
+        char cpu_bl,mem_bl,io_bl;
+        int proc_arr[3];
+        
+        do_cpu = do_mem = do_io = 0;
+        cpu_bl = mem_bl = io_bl = 0;
 
-void get_Hz();
-int do_cpu_run();
-int limit_cpu(int ,int ,proc_t* ,proc_t* );
-void update_proc(int ,proc_t*);
-unsigned long get_cputime(int );
-inline unsigned long timediff(const struct timeval*,const struct timeval*);
-void swap_proc(proc_t** proc1,proc_t** proc2);
-
-int main(int argc, char** argv){
-        int i,pid,children=0;
-        int proc_list[3];
-        int cpu_status,mem_status,io_status;
-        int  cpu_load,mem_load,io_load;
-        long run_time=-1;
-        proc_t proc_cpu1,proc_cpu2;
-        cpu_status = mem_status = io_status = -1;
-        get_Hz();
-        for(i=1; i < argc; i++){
-                char* arg = argv[i];
-                if(strcmp (arg, "cpu") == 0){
-                        cpu_load = atoi(argv[++i]);
-                }else if(strcmp (arg, "mem") == 0 ){
-                        mem_load = atoi(argv[++i]);
-                }else if(strcmp (arg, "io") == 0){
-                        io_load = atoi(argv[++i]);
-                }else if(strcmp (arg, "t") == 0){
-                        run_time = atoi(argv[++i]);
+        //parse argument
+        for(i=1;i<argc;i++){
+                if(strcmp(argv[i],"cpu")  == 0){
+                        cpu_load = atoi(argv[++i]) / 100.0;
+                        do_cpu = 1;
+                }else if(strcmp(argv[i],"mem") == 0){
+                        mem_load = atoi(argv[++i]) / 100.0;
+                        do_mem = 1;
+                }else if(strcmp(argv[i],"io") == 0){
+                        io_load = atoi(argv[++i]) / 100.0;
+                        do_io = 1;
+                }else if(strcmp(argv[i],"t") == 0){
+                        timeout = atoi(argv[++i]);
                 }else{
-                        printf("Unrecongnize argument %s",argv[i]);
+                        printf("Unrecongnize argument --- %s %s\n",argv[i],argv[++i]);
+                        exit(1);
                 }
         }
-        printf("CPU load %d\n",cpu_load);
-        printf("Memory load %d\n",mem_load);
-        printf("IO load %d\n",io_load);
-        printf("Run Time %ld\n",run_time);
-        if( cpu_load > 0 ){
+
+        printf("CPU load %.2lf\n",cpu_load);
+        printf("Memory load %.2lf\n",mem_load);
+        printf("IO load %.2lf\n",io_load);
+        printf("Timeout %d\n",timeout);
+
+        int pid;
+        if(do_cpu){
                 switch(pid = fork()){
                   case 0:
-                        if(run_time != -1)
-                                alarm(run_time);
-                        do_cpu_run(cpu_load);
+                        if(timeout)
+                                alarm(timeout);
+                        exit(cpu_run());
+                        break;
                   case -1:
-                        printf("fork process error while adding cpu load\n");
+                        printf("error while fork cpu worker\n");
+                        break;
                   default:
-                        update_proc(pid,&proc_cpu1);
-                        proc_list[CPU_i] = pid;
-                        cpu_status = 1;
+                        cpu_bl = 1;
+                        proc_arr[CPU_I] = pid;
                         printf("CPU worker %d forked\n",pid);
-                        ++children;
                 }
         }
-        if( mem_load > 0 ){
-        
-        }
-        if( io_load > 0 ){
-        
-        }
-        while( children ){
-                if(cpu_status == 1)
-                        cpu_status = limit_cpu(proc_list[CPU_i],cpu_load,&proc_cpu1,&proc_cpu2);
-                        if(!cpu_status)
-                                children--;
-                if(mem_status){
-
+        if(do_mem){
+                switch(pid = fork()){
+                  case 0:
+                        if(timeout)
+                                alarm(timeout);
+                        exit(mem_run(mem_load));
+                        break;
+                  case -1:
+                        printf("error while fork memory worker\n");
+                        break;
+                  default:
+                        mem_bl = 1;
+                        proc_arr[MEM_I] = pid;
+                        printf("Memory worker %d forked\n",pid);
                 }
-                        
-
         }
-//        while( children ){
-//                int status, ret;
-//                if( (pid = wait(&status)) > 0 ){
-//                        if(WIFEXITED(status)){
-//                                if((ret = WEXITSTATUS(status)) ==0){
-//                                        printf("Worker %d exit normally\n",pid);
-//                                }else{
-//                                        printf("Worker %d exit return error %d\n",pid,ret);
-//                                }
-//                        }else if (WIFSIGNALED(status)){
-//                                if((ret = WTERMSIG(status)) == SIGALRM){
-//                                        printf("Worker %d signalled normally\n",pid);
-//                                }else{
-//                                        printf("Worker %d got signal %d\n",pid,ret);
-//                                }
-//                        }
-//                        --children;
-//                }else{
-//                        printf("ERROR wait for worker\n");
+//        if(do_io){
+//                switch(pid = fork()){
+//                  case 0:
+//                        if(timeout)
+//                               alarm(timeout);
+//                        exit(io_run());
+//                        break;
+//                  case -1:
+//                        printf("error while fork io worker\n");
+//                        break;
+//                  default:
+//                        io_bl = 1;
+//                        proc_arr[IO_I] = pid;
+//                        printf("IO worker %d forked\n",pid);
 //                }
 //        }
+        
+
+        while(cpu_bl + mem_bl + io_bl){
+                cpu_bl = cpu_handler();
+                mem_bl = mem_handler(proc_arr[MEM_I]);
+                io_bl = io_handler();
+        }
+
         return 0;
-}
-void get_Hz(){
-        hz = (double)sysconf(_SC_CLK_TCK);
+
 }
 
-int do_cpu_run(){
+int cpu_run(){
         while(1){
                 sqrt(rand());
         }
 
         return 0;
 }
-int limit_cpu(int pid,int cpu_load,proc_t* proc1,proc_t* proc2){
-        static double limit=-1.0;
-        double cpu_usage;
-        unsigned long dt;
-        unsigned long sleep_time;
 
-        update_proc(pid,proc2);
-        dt = timediff(&proc2->last_update,&proc1->last_update)/1000; //ms
-         
-        printf("dt ---- %lu\n",dt);
+int mem_run(double load){
+        unsigned long total_mem;
+        unsigned long long use_bytes;
+        char *ptr;
+        int i;
 
-        cpu_usage = 1.0 * (proc2->cpu_time-proc1->cpu_time)/dt;
-        printf("CPU Usage: %lf\n",cpu_usage);
-        swap_proc(&proc1,&proc2);
+        total_mem = get_total_mem();
+        use_bytes = total_mem * 1024 *load;
+        if( (ptr = malloc( use_bytes * sizeof(char))) == NULL){
+                printf("Memory worker malloc failed\n");
+        }
+        
 
+        while(1){
+                for(i=0;i<use_bytes;i++){
+                        ptr[i] = 'a';
+                }
+        }
 
         return 0;
 }
 
-void update_proc(int pid,proc_t * proc){
-        proc->cpu_time = get_cputime(pid);
-        gettimeofday(&proc->last_update,NULL);
-}
-
-unsigned long get_cputime(int pid){
-        char statfile[50];
-        char buf[1024];
-        FILE* fp;
+int io_run(){
+        char name[]="./workload.XXXXXX";
+        int fd;
         int i;
-        unsigned long cpu_time=0;
-        sprintf(statfile,"/proc/%d/stat",pid);
-        fp = fopen(statfile,"r");
-        if(fgets(buf,sizeof(buf),fp) == NULL){
-                printf("Read %s Failed",statfile);
-                exit(1);
+        char buf[1024*1024*1024];
+        printf("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO\n");
+        for(i=0;i<sizeof(buf);i++){
+                buf[i] = i*191;
         }
-        fclose(fp);
-        char *token = strtok(buf," ");
-        for(i=0;i<13;i++){
-                token = strtok(NULL," ");
+        printf("%lu \n",sizeof(buf));
+        int c=0;
+        while(1){
+                if( (fd= mkstemp(name)) == -1){
+                        printf("IO worker mkstemp %s failed %d\n",name,errno);
+                        return 1;
+                }
+                if( unlink(name) == -1){
+                        printf("IO worker unlink %s failed %d\n",name,errno);
+                        return 1;
+                }
+                write(fd,buf,sizeof(buf));
+                close(fd);
+//                strcpy(name,"./workload.XXXXXX");
         }
-        cpu_time = atoi(token) * 1000 / hz;
-        token = strtok(NULL," ");
-        cpu_time += atoi(token) * 1000 / hz;
-        return cpu_time;
-}
-unsigned long timediff(const struct timeval* t1,const struct timeval* t2){
-        return (t1->tv_sec - t2->tv_sec) * 1000000 + (t1->tv_usec - t2->tv_usec);        
+
+        return 0;
 }
 
-void swap_proc(proc_t** proc1,proc_t** proc2){
-        proc_t* tmp;
-        tmp = *proc1;
-        *proc1 = *proc2;
-        *proc2 = tmp;
+char cpu_handler(){
+        return 0;
+}
+char mem_handler(int pid){
+        int status;
+        waitpid(pid,&status,WNOHANG);
+        if(WIFSIGNALED(status)){
+                printf("Memory worker signaled\n");
+                return 0;
+        }
+        return 1;
+}
+char io_handler(){
+        return 0;
+}
+unsigned long get_total_mem(){
+        FILE* fd;
+        char str[50],unit[5];
+        unsigned long total_mem;
+
+        fd = fopen("/proc/meminfo","r");
+        fscanf(fd,"%s %lu %s",str,&total_mem,unit);
+
+        return total_mem;
 }
