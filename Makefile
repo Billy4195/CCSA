@@ -12,5 +12,10 @@ pro_2: pro_2.c
 	gcc $< -o $@ -lm -lpthread
 pro_3: pro_3.c
 	gcc $< -o $@ -lm -lpthread
+run: pthread_setaffinity_np_test pro_1 pro_2 pro_3
+	./pthread_setaffinity_np_test
+	./pro_1
+	./pro_2
+	./pro_3
 clean: 
 	rm pthread_setaffinity_np_test pro_1 pro_2 pro_3 
