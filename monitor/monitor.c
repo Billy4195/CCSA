@@ -17,7 +17,7 @@ int main(){
         unsigned long pre_rd_sec,pre_wr_sec,aft_rd_sec,aft_wr_sec;
         unsigned int hz;
         long ticks;
-
+        while(1){
         fp = fopen("/proc/meminfo","r");
         fscanf(fp,"%s %ld %s",buf,&num,unit);
         mem_tol = num;
@@ -51,7 +51,7 @@ int main(){
         }
         fclose(fp);
 
-        sleep(5);
+        sleep(2);
         fp = fopen("/proc/stat","r");
         fscanf(fp,"%s %ld %ld %ld %ld %ld %ld %ld %ld",cpu_name,&aft[0],&aft[1],
             &aft[2],&aft[3],&aft[4],&aft[5],&aft[6],&aft[7]);
@@ -93,5 +93,6 @@ int main(){
         printf("HZ = %d\n",hz);
         printf("Read speed %lf MB/s\n",(double)(aft_rd_sec-pre_rd_sec)/(double)((unsigned long)Total-(unsigned long)PreTotal)*hz/2048);
         printf("Write speed %lf MB/s\n\n",(double)(aft_wr_sec-pre_wr_sec)/(double)((unsigned long)Total-(unsigned long)PreTotal)*hz/2048);
+        }
         return 0;
 }
