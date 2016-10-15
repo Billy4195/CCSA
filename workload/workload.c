@@ -3,6 +3,8 @@
 #include <math.h>
 #include <errno.h>
 #include <string.h>
+#include <signal.h>
+#include <unistd.h>
 
 #define CPU_I 0
 #define MEM_I 1
@@ -11,9 +13,9 @@
 int cpu_run();
 int mem_run(double);
 int io_run();
-char cpu_handler();
+char cpu_handler(int);
 char mem_handler(int);
-char io_handler();
+char io_handler(int);
 unsigned long get_total_mem();
 
 int main(int argc,char **argv){
@@ -84,6 +86,22 @@ int main(int argc,char **argv){
                         printf("Memory worker %d forked\n",pid);
                 }
         }
+        if(do_io){
+                switch(pid = fork()){
+                  case 0:
+                        if(timeout)
+                                alarm(timeout);
+                        exit(io_run(io_load));
+                        break;
+                  case -1:
+                        printf("error while fork io worker\n");
+                        break;
+                  default:
+                        io_bl = 1;
+                        proc_arr[IO_I] = pid;
+                        printf("IO worker %d forked\n",pid);
+                }
+        }
 //        if(do_io){
 //                switch(pid = fork()){
 //                  case 0:
@@ -103,9 +121,9 @@ int main(int argc,char **argv){
         
 
         while(cpu_bl + mem_bl + io_bl){
-                cpu_bl = cpu_handler();
+                cpu_bl = cpu_handler(proc_arr[CPU_I]);
                 mem_bl = mem_handler(proc_arr[MEM_I]);
-                io_bl = io_handler();
+                io_bl = io_handler(proc_arr[IO_I]);
         }
 
         return 0;
@@ -142,36 +160,38 @@ int mem_run(double load){
         return 0;
 }
 
-int io_run(){
-        char name[]="./workload.XXXXXX";
-        int fd;
-        int i;
-        char buf[1024*1024*1024];
-        printf("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO\n");
-        for(i=0;i<sizeof(buf);i++){
-                buf[i] = i*191;
-        }
-        printf("%lu \n",sizeof(buf));
-        int c=0;
+int io_run(double load){
+        int pid;
+        unlink("./IO_tmp");
         while(1){
-                if( (fd= mkstemp(name)) == -1){
-                        printf("IO worker mkstemp %s failed %d\n",name,errno);
-                        return 1;
+                switch( pid = fork() ){
+                  case 0:
+                        execlp("/bin/dd","dd","if=/dev/zero","of=./IO_tmp","conv=fdatasync","bs=1G","count=1",NULL);
+                        break;
+                  case -1:
+                        printf("Fork dd IO failed\n");
+                        break;
+                  default:
+                        usleep(1000000*load);        
+                        kill(pid, SIGABRT);
+                        unlink("./IO_tmp");
+                        usleep(1000000*(1-load));
                 }
-                if( unlink(name) == -1){
-                        printf("IO worker unlink %s failed %d\n",name,errno);
-                        return 1;
-                }
-                write(fd,buf,sizeof(buf));
-                close(fd);
-//                strcpy(name,"./workload.XXXXXX");
+                if(pid == -1)
+                  break;
         }
 
         return 0;
 }
 
-char cpu_handler(){
-        return 0;
+char cpu_handler(int pid){
+        int status;
+        waitpid(pid,&status,WNOHANG);
+        if(WIFSIGNALED(status)){
+                printf("CPU worker signaled\n");
+                return 0;
+        }
+        return 1;
 }
 char mem_handler(int pid){
         int status;
@@ -182,8 +202,14 @@ char mem_handler(int pid){
         }
         return 1;
 }
-char io_handler(){
-        return 0;
+char io_handler(int pid){
+        int status;
+        waitpid(pid,&status,WNOHANG);
+        if(WIFSIGNALED(status)){
+                printf("IO worker signaled\n");
+                return 0;
+        }
+        return 1;
 }
 unsigned long get_total_mem(){
         FILE* fd;
