@@ -1,0 +1,3 @@
+[submodule "lab1/workload/cpulimit"]
+	path = lab1/workload/cpulimit
+	url = https://github.com/opsengine/cpulimit.git
