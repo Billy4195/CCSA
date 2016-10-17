@@ -30,5 +30,18 @@ do
 
   shift
 done
-echo $cpu $mem $io $t
+if [ -z $cpu ]
+then 
+  cpu=100
+  cpu=$(($cpu * $ncpu))
+fi
+if [ -z $io ]
+then 
+  io=0
+fi
+if [ -z $mem ]
+then 
+  mem=0
+fi
+#echo $cpu $mem $io $t
 ./cpulimit -i -l $cpu ./workload cpu $cpu mem $mem io $io t $t
